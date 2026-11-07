@@ -1,0 +1,35 @@
+# Development image on ros:jazzy, GPU-ready through the NVIDIA Container Toolkit.
+#
+# The GPU is not part of the image: the driver and device are injected at run
+# time (`docker compose --profile dev run --rm dev`, which requests `gpus: all`).
+# CUDA, TensorRT and the simulation stack arrive with their milestones
+# (Gazebo Harmonic in v0.2, TensorRT in v0.8); this image only adds the core
+# toolchain and a non-root user that owns files on the bind mount.
+#
+# Build:  docker build -f docker/Dockerfile.dev -t wmm-dev \
+#           --build-arg USER_UID="$(id -u)" --build-arg USER_GID="$(id -g)" docker
+ARG ROS_IMAGE=ros:jazzy
+FROM ${ROS_IMAGE}
+
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+
+COPY install_toolchain.sh /tmp/install_toolchain.sh
+RUN bash /tmp/install_toolchain.sh && rm /tmp/install_toolchain.sh
+
+# Ubuntu 24.04 images ship a default user "ubuntu" with UID/GID 1000, which
+# collides with the usual host UID. Remove it, then create a user matching the host.
+ARG USERNAME=dev
+ARG USER_UID=1000
+ARG USER_GID=1000
+RUN if id -u ubuntu >/dev/null 2>&1; then userdel --remove ubuntu; fi \
+ && groupadd --gid "${USER_GID}" "${USERNAME}" \
+ && useradd --uid "${USER_UID}" --gid "${USER_GID}" --create-home --shell /bin/bash "${USERNAME}" \
+ && echo "source /opt/ros/jazzy/setup.bash" >> "/home/${USERNAME}/.bashrc"
+
+# Expose all GPU capabilities to the container when started with a GPU.
+ENV NVIDIA_VISIBLE_DEVICES=all \
+    NVIDIA_DRIVER_CAPABILITIES=compute,utility,graphics
+
+USER ${USERNAME}
+WORKDIR /ws
+CMD ["bash"]

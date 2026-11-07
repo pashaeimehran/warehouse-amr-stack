@@ -1,0 +1,21 @@
+# Headless, GPU-free CI image. Built once and cached by GitHub Actions; never
+# install ROS per run (roadmap, "Practical points").
+#
+# Build:  docker build -f docker/Dockerfile.ci -t wmm-ci docker
+# Use:    docker compose --profile ci run --rm ci tools/ci/check_core.sh all
+#
+# The source tree is bind-mounted at run time, never copied: the image holds
+# only the toolchain, so code changes do not invalidate the cache.
+# For reproducible CI, pin ROS_IMAGE to a digest (ros:jazzy-ros-base-noble@sha256:...).
+ARG ROS_IMAGE=ros:jazzy-ros-base-noble
+FROM ${ROS_IMAGE}
+
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+
+COPY install_toolchain.sh /tmp/install_toolchain.sh
+RUN bash /tmp/install_toolchain.sh && rm /tmp/install_toolchain.sh
+
+# CI runs the container as the runner's UID, which has no home directory here.
+ENV HOME=/tmp
+WORKDIR /ws
+CMD ["bash"]

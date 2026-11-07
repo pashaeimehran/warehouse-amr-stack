@@ -1,0 +1,65 @@
+# Compose profiles (roadmap): dev and ci now; sim and runtime arrive with
+# v0.2 and v1.0. The repository is bind-mounted at /ws in every service.
+#
+#   docker compose --profile ci run --rm ci tools/ci/check_core.sh all
+#   docker compose --profile ci run --rm ci-tsan tools/ci/check_core.sh tsan
+#   docker compose --profile dev run --rm dev
+#
+# Build trees: CMake caches record their absolute source path, so a cache made
+# on the host (/mnt/d/...) cannot be reused at /ws and vice versa. Each service
+# therefore overlays /ws/build with its own host directory (build/docker-ci,
+# build/docker-dev), which keeps host and container builds side by side.
+#
+# Host user: containers run as HOST_UID:HOST_GID (default 1000:1000) so files
+# on the bind mount stay owned by you. Bash's $UID is read-only and is not
+# exported, so other UIDs pass it explicitly:
+#   HOST_UID="$(id -u)" HOST_GID="$(id -g)" docker compose --profile ci run --rm ci ...
+name: warehouse-amr-stack
+
+x-ci: &ci
+  profiles: [ci]
+  image: wmm-ci:local
+  user: "${HOST_UID:-1000}:${HOST_GID:-1000}"
+  volumes:
+    - .:/ws
+    - ./build/docker-ci:/ws/build
+  working_dir: /ws
+
+services:
+  ci:
+    <<: *ci
+    build:
+      context: docker
+      dockerfile: Dockerfile.ci
+
+  # TSan needs ASLR disabled (setarch -R), which Docker's default seccomp
+  # profile forbids. This service relaxes seccomp for that one local use;
+  # GitHub Actions instead lowers vm.mmap_rnd_bits on its throwaway runner VM.
+  # It shares build/docker-ci with the ci service.
+  ci-tsan:
+    <<: *ci
+    security_opt:
+      - seccomp=unconfined
+
+  dev:
+    profiles: [dev]
+    build:
+      context: docker
+      dockerfile: Dockerfile.dev
+      args:
+        USER_UID: ${HOST_UID:-1000}
+        USER_GID: ${HOST_GID:-1000}
+    image: wmm-dev:local
+    volumes:
+      - .:/ws
+      - ./build/docker-dev:/ws/build
+    working_dir: /ws
+    stdin_open: true
+    tty: true
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]

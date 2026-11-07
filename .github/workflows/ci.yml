@@ -1,0 +1,124 @@
+# Every push and PR: format, clang-tidy, build and GTest (debug, release),
+# ASan, UBSan, gcovr coverage with artifacts. TSan runs nightly and on demand
+# (roadmap: "ASan and UBSan (TSan scheduled)").
+#
+# Each job runs tools/ci/check_core.sh inside the cached CI image, so
+#   docker compose --profile ci run --rm ci tools/ci/check_core.sh <step>
+# reproduces a job locally. GPU-dependent tests (label "gpu") never run here:
+# hosted runners have no GPU and every test preset excludes that label.
+#
+# ROS workspace build, pytest, node tests and launch_testing join this
+# workflow when those packages exist (v0.2 onward).
+name: ci
+
+on:
+  push:
+  pull_request:
+  schedule:
+    - cron: "17 2 * * *" # nightly, 02:17 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CI_IMAGE: wmm-ci:local
+
+jobs:
+  static-analysis:
+    name: static analysis (ROS independence, clang-format, ShellCheck, clang-tidy)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/ci-image
+      - name: Check
+        run: >
+          docker run --rm -u "$(id -u):$(id -g)" -v "$GITHUB_WORKSPACE:/ws" -w /ws "$CI_IMAGE"
+          tools/ci/check_core.sh ros-independence format shell-lint tidy
+
+  test:
+    name: build and test (${{ matrix.preset }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        preset: [debug, release, asan, ubsan]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/ci-image
+      - name: Build and test
+        run: >
+          docker run --rm -u "$(id -u):$(id -g)" -v "$GITHUB_WORKSPACE:/ws" -w /ws "$CI_IMAGE"
+          tools/ci/check_core.sh ${{ matrix.preset }}
+      - name: Upload test log
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ctest-log-${{ matrix.preset }}
+          path: build/${{ matrix.preset }}/Testing/Temporary/LastTest.log
+          if-no-files-found: ignore
+          retention-days: 14
+
+  tsan:
+    name: build and test (tsan)
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/ci-image
+      # GCC 13's TSan runtime aborts on the runner kernel's default mmap ASLR
+      # entropy. This changes only the disposable runner VM; containers share
+      # its kernel. Local machines use setarch -R instead (check_core.sh).
+      - name: Lower mmap ASLR entropy for TSan
+        run: sudo sysctl -w vm.mmap_rnd_bits=28
+      - name: Build and test
+        run: >
+          docker run --rm -u "$(id -u):$(id -g)" -v "$GITHUB_WORKSPACE:/ws" -w /ws "$CI_IMAGE"
+          tools/ci/check_core.sh tsan
+      - name: TSan stress, MPMC queue 1000 iterations (roadmap done-when)
+        run: >
+          docker run --rm -u "$(id -u):$(id -g)" -v "$GITHUB_WORKSPACE:/ws" -w /ws
+          -e TSAN_OPTIONS=halt_on_error=1 "$CI_IMAGE"
+          build/tsan/src/robot_core/test/robot_core_tests
+          --gtest_filter='TaskQueue.MultiProducer*' --gtest_repeat=1000 --gtest_brief=1
+      - name: Upload test log
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ctest-log-tsan
+          path: build/tsan/Testing/Temporary/LastTest.log
+          if-no-files-found: ignore
+          retention-days: 14
+
+  coverage:
+    name: coverage (gcovr, fails below 85 % lines)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/ci-image
+      - name: Coverage
+        run: >
+          docker run --rm -u "$(id -u):$(id -g)" -v "$GITHUB_WORKSPACE:/ws" -w /ws "$CI_IMAGE"
+          tools/ci/check_core.sh coverage
+      - name: Summary
+        if: always()
+        run: |
+          if [[ -f build/coverage/report/coverage.txt ]]; then
+            { echo '```'; cat build/coverage/report/coverage.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: coverage-report
+          path: build/coverage/report/
+          if-no-files-found: warn
+          retention-days: 30

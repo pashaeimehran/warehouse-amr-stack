@@ -1,0 +1,13 @@
+# The images use docker/ as build context and bind-mount the source, so this
+# only matters if the repository root is ever used as a context (runtime image, v1.0).
+build/
+install/
+log/
+.git/
+.venv/
+datasets/
+*.pt
+*.onnx
+*.engine
+*.db3
+*.mcap

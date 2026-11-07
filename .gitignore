@@ -1,0 +1,33 @@
+# Build trees (CMake presets and colcon)
+/build/
+/install/
+/log/
+compile_commands.json
+
+# Coverage and profiling output
+*.gcda
+*.gcno
+*.gcov
+/coverage/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+
+# ML artifacts: datasets and weights ship as release assets, never in git
+*.pt
+*.onnx
+*.engine
+/datasets/
+
+# Rosbags and traces
+*.db3
+*.mcap
+
+# Editors and OS
+.vscode/
+.idea/
+*.swp
+.DS_Store

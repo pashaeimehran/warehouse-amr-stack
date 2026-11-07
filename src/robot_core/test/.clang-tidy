@@ -1,0 +1,11 @@
+---
+# Test code inherits the root configuration with two GoogleTest-specific exceptions:
+#   bugprone-unchecked-optional-access: the check cannot see that ASSERT_TRUE(opt.has_value())
+#     returns from the test body, so every guarded access is flagged. Guard with ASSERT, never EXPECT.
+#   cppcoreguidelines-non-private-member-variables-in-classes: protected members in
+#     ::testing::Test fixtures are the documented GoogleTest pattern.
+InheritParentConfig: true
+Checks: >
+  -bugprone-unchecked-optional-access,
+  -cppcoreguidelines-non-private-member-variables-in-classes
+...
