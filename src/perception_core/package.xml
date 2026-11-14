@@ -1,0 +1,18 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>perception_core</name>
+  <version>0.3.0</version>
+  <description>ROS-independent perception core (Python): letterbox preprocessing, detector backend interface, mock backend, YOLO head decoding, own NMS.</description>
+  <maintainer email="mehran.pashaei.mp@gmail.com">Mehran Pashaei</maintainer>
+  <license>Apache-2.0</license>
+
+  <exec_depend>python3-numpy</exec_depend>
+  <exec_depend>python3-opencv</exec_depend>
+
+  <test_depend>python3-pytest</test_depend>
+
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>

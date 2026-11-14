@@ -1,0 +1,89 @@
+{
+  "experiment": "executor_lab",
+  "date_utc": "2026-11-14",
+  "run_label": "_r3",
+  "rmw": "default (rmw_fastrtps_cpp)",
+  "host": {
+    "machine": "x86_64",
+    "kernel": "6.18.58.1-microsoft-standard-WSL2",
+    "cpu_count": 12
+  },
+  "cells": [
+    {
+      "config": "single_default",
+      "duration_s": 10,
+      "fast_hz": 50,
+      "slow_period_ms": 500,
+      "slow_work_ms": 200,
+      "slow_invocations": 20,
+      "expected_fast_invocations": 500,
+      "fast_invocations": 310,
+      "missed_activations": 200,
+      "late_gaps": 20,
+      "period_ms": {
+        "p50": 20.0099,
+        "p95": 219.911,
+        "p99": 220.435,
+        "max": 220.883,
+        "stddev": 49.2357
+      }
+    },
+    {
+      "config": "single_separate",
+      "duration_s": 10,
+      "fast_hz": 50,
+      "slow_period_ms": 500,
+      "slow_work_ms": 200,
+      "slow_invocations": 20,
+      "expected_fast_invocations": 500,
+      "fast_invocations": 310,
+      "missed_activations": 200,
+      "late_gaps": 20,
+      "period_ms": {
+        "p50": 20.0064,
+        "p95": 219.957,
+        "p99": 220.201,
+        "max": 220.343,
+        "stddev": 49.2189
+      }
+    },
+    {
+      "config": "multi_default",
+      "duration_s": 10,
+      "fast_hz": 50,
+      "slow_period_ms": 500,
+      "slow_work_ms": 200,
+      "slow_invocations": 19,
+      "expected_fast_invocations": 500,
+      "fast_invocations": 309,
+      "missed_activations": 190,
+      "late_gaps": 19,
+      "period_ms": {
+        "p50": 20.0207,
+        "p95": 219.973,
+        "p99": 220.248,
+        "max": 220.416,
+        "stddev": 48.144
+      }
+    },
+    {
+      "config": "multi_separate",
+      "duration_s": 10,
+      "fast_hz": 50,
+      "slow_period_ms": 500,
+      "slow_work_ms": 200,
+      "slow_invocations": 19,
+      "expected_fast_invocations": 500,
+      "fast_invocations": 500,
+      "missed_activations": 0,
+      "late_gaps": 0,
+      "period_ms": {
+        "p50": 20.0024,
+        "p95": 20.3598,
+        "p99": 20.4584,
+        "max": 21.194,
+        "stddev": 0.215669
+      }
+    }
+  ]
+}

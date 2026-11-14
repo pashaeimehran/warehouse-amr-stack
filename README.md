@@ -40,11 +40,32 @@ docker compose --profile ci run --rm ci tools/ci/check_core.sh <step>
 ```
 
 See [docs/01-core-design.md](docs/01-core-design.md#quality-gate-and-ci).
-The workflow has not run on GitHub yet: the repository has not been pushed.
+The core jobs are green on GitHub (push and nightly, since 2026-11-07). The
+`ros` job (colcon build, GTest, pytest, launch tests with headless Gazebo) was
+added on 2026-11-14 and has not run on GitHub yet.
+
+## Simulated platform (v0.2)
+
+ROS 2 Jazzy and Gazebo Harmonic run inside the CI and dev images only:
+
+```bash
+docker compose --profile ci build ci
+docker compose --profile ci run --rm ci tools/ci/check_ros.sh build test
+```
+
+A differential-drive AMR with 2D LiDAR, RGB-D camera and IMU, driven through
+ros2_control, in a generated warehouse world with AprilTag landmarks; Nav2 with
+AMCL on a slam_toolbox map. Design, measurements (QoS, executors, map accuracy)
+and failure modes: [docs/02-ros2-architecture.md](docs/02-ros2-architecture.md).
+Progress against the roadmap: [docs/implementation-status.md](docs/implementation-status.md).
 
 ## Documentation
 
 - [docs/01-core-design.md](docs/01-core-design.md): core library design, mission state machine, concurrency
+- [docs/02-ros2-architecture.md](docs/02-ros2-architecture.md): ROS 2 platform, QoS and executor measurements, navigation
+- [docs/implementation-status.md](docs/implementation-status.md), [docs/implementation-plan.md](docs/implementation-plan.md): progress and remaining work
+
+Third-party asset: the walking person mesh is the Gazebo Fuel model "actor" by Mingfei (CC BY 4.0), downloaded and SHA256-verified at image build time (`docker/fetch_sim_assets.sh`).
 
 ## License
 

@@ -1,0 +1,20 @@
+# apriltag_ros: detections of the shelf-end landmarks (warehouse_sim/config/tag_map.yaml).
+# Publishes /detections and one TF per detected tag: camera_optical_frame -> tag_<id>.
+apriltag:
+  ros__parameters:
+    image_transport: raw
+    family: 36h11
+    size: 0.2               # m, black square edge (generate_world.py TAG_SIZE)
+    max_hamming: 0
+    qos_profile: sensor_data
+    detector:
+      threads: 2
+      decimate: 1.0         # tags are about 22 px wide at 4 m; 2.0 loses them
+      blur: 0.0
+      refine: true
+      sharpening: 0.25
+      debug: false
+    pose_estimation_method: "pnp"
+    tag:
+      ids: [0, 1, 2, 3, 4, 5, 6, 7]
+      frames: [tag_0, tag_1, tag_2, tag_3, tag_4, tag_5, tag_6, tag_7]

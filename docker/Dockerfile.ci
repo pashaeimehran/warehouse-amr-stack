@@ -15,7 +15,19 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 COPY install_toolchain.sh /tmp/install_toolchain.sh
 RUN bash /tmp/install_toolchain.sh && rm /tmp/install_toolchain.sh
 
+# ROS 2 packages of the simulated platform (Gazebo Harmonic, ros2_control,
+# Nav2, AprilTags, both RMWs). A separate layer, so toolchain changes and ROS
+# package changes invalidate the cache independently.
+COPY install_ros_packages.sh /tmp/install_ros_packages.sh
+RUN bash /tmp/install_ros_packages.sh ci && rm /tmp/install_ros_packages.sh
+
+# Third-party simulation assets (walking actor mesh), SHA256-verified.
+COPY fetch_sim_assets.sh /tmp/fetch_sim_assets.sh
+RUN bash /tmp/fetch_sim_assets.sh && rm /tmp/fetch_sim_assets.sh
+
 # CI runs the container as the runner's UID, which has no home directory here.
 ENV HOME=/tmp
+# Stack middleware: Cyclone DDS (decision and measurement in docs/02).
+ENV RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
 WORKDIR /ws
 CMD ["bash"]

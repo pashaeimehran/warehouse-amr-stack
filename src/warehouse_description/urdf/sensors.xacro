@@ -1,0 +1,151 @@
+<?xml version="1.0"?>
+<!--
+  Sensors of the AMR base, as Gazebo Harmonic sensors (published on gz
+  transport, bridged to ROS 2 by ros_gz_bridge in warehouse_bringup):
+    2D LiDAR   gpu_lidar, 360 deg, 720 samples, 0.12 to 20 m, 10 Hz, 1 cm noise
+    RGB-D      rgbd_camera, 640 x 480, 69 deg HFOV, 15 Hz, depth 0.2 to 10 m
+    IMU        200 Hz, white noise on rates and accelerations
+  Images carry camera_optical_frame (REP 103 optical convention) as frame id.
+  Rendering sensors need the Sensors system with ogre2; in containers without
+  a GPU, Gazebo runs it on Mesa llvmpipe (headless rendering).
+-->
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+  <xacro:macro name="base_sensors" params="chassis_top chassis_front">
+
+    <!-- 2D LiDAR on a short mast at the front, above the chassis -->
+    <link name="laser_link">
+      <visual>
+        <geometry><cylinder radius="0.04" length="0.05"/></geometry>
+        <material name="sensor_black"><color rgba="0.05 0.05 0.05 1"/></material>
+      </visual>
+      <collision><geometry><cylinder radius="0.04" length="0.05"/></geometry></collision>
+      <inertial>
+        <mass value="0.2"/>
+        <inertia ixx="1e-4" ixy="0" ixz="0" iyy="1e-4" iyz="0" izz="1e-4"/>
+      </inertial>
+    </link>
+    <joint name="laser_joint" type="fixed">
+      <parent link="base_link"/>
+      <child link="laser_link"/>
+      <origin xyz="${chassis_front - 0.10} 0 ${chassis_top + 0.025}"/>
+    </joint>
+    <gazebo reference="laser_link">
+      <sensor name="lidar" type="gpu_lidar">
+        <topic>scan</topic>
+        <gz_frame_id>laser_link</gz_frame_id>
+        <update_rate>10</update_rate>
+        <always_on>true</always_on>
+        <visualize>false</visualize>
+        <lidar>
+          <scan>
+            <horizontal>
+              <samples>720</samples>
+              <resolution>1</resolution>
+              <min_angle>-3.14159</min_angle>
+              <max_angle>3.14159</max_angle>
+            </horizontal>
+            <vertical>
+              <samples>1</samples>
+              <min_angle>0</min_angle>
+              <max_angle>0</max_angle>
+            </vertical>
+          </scan>
+          <range>
+            <min>0.12</min>
+            <max>20.0</max>
+            <resolution>0.01</resolution>
+          </range>
+          <noise>
+            <type>gaussian</type>
+            <mean>0.0</mean>
+            <stddev>0.01</stddev>
+          </noise>
+        </lidar>
+      </sensor>
+    </gazebo>
+
+    <!-- RGB-D camera at the front face, pitched 0.15 rad down -->
+    <link name="camera_link">
+      <visual>
+        <geometry><box size="0.03 0.12 0.03"/></geometry>
+        <material name="sensor_black"/>
+      </visual>
+      <collision><geometry><box size="0.03 0.12 0.03"/></geometry></collision>
+      <inertial>
+        <mass value="0.1"/>
+        <inertia ixx="1e-5" ixy="0" ixz="0" iyy="1e-5" iyz="0" izz="1e-5"/>
+      </inertial>
+    </link>
+    <joint name="camera_joint" type="fixed">
+      <parent link="base_link"/>
+      <child link="camera_link"/>
+      <origin xyz="${chassis_front + 0.015} 0 ${chassis_top - 0.03}" rpy="0 0.15 0"/>
+    </joint>
+    <link name="camera_optical_frame"/>
+    <joint name="camera_optical_joint" type="fixed">
+      <parent link="camera_link"/>
+      <child link="camera_optical_frame"/>
+      <origin rpy="${-pi / 2} 0 ${-pi / 2}"/>
+    </joint>
+    <gazebo reference="camera_link">
+      <sensor name="rgbd_camera" type="rgbd_camera">
+        <topic>camera</topic>
+        <gz_frame_id>camera_optical_frame</gz_frame_id>
+        <update_rate>15</update_rate>
+        <always_on>true</always_on>
+        <visualize>false</visualize>
+        <camera>
+          <horizontal_fov>1.2</horizontal_fov>
+          <image>
+            <width>640</width>
+            <height>480</height>
+            <format>R8G8B8</format>
+          </image>
+          <clip>
+            <near>0.05</near>
+            <far>15.0</far>
+          </clip>
+          <depth_camera>
+            <clip>
+              <near>0.2</near>
+              <far>10.0</far>
+            </clip>
+          </depth_camera>
+          <noise>
+            <type>gaussian</type>
+            <mean>0.0</mean>
+            <stddev>0.007</stddev>
+          </noise>
+        </camera>
+      </sensor>
+    </gazebo>
+
+    <!-- IMU at the chassis centre -->
+    <link name="imu_link"/>
+    <joint name="imu_joint" type="fixed">
+      <parent link="base_link"/>
+      <child link="imu_link"/>
+      <origin xyz="0 0 0.05"/>
+    </joint>
+    <gazebo reference="imu_link">
+      <sensor name="imu" type="imu">
+        <topic>imu</topic>
+        <gz_frame_id>imu_link</gz_frame_id>
+        <update_rate>200</update_rate>
+        <always_on>true</always_on>
+        <imu>
+          <angular_velocity>
+            <x><noise type="gaussian"><mean>0</mean><stddev>0.002</stddev></noise></x>
+            <y><noise type="gaussian"><mean>0</mean><stddev>0.002</stddev></noise></y>
+            <z><noise type="gaussian"><mean>0</mean><stddev>0.002</stddev></noise></z>
+          </angular_velocity>
+          <linear_acceleration>
+            <x><noise type="gaussian"><mean>0</mean><stddev>0.02</stddev></noise></x>
+            <y><noise type="gaussian"><mean>0</mean><stddev>0.02</stddev></noise></y>
+            <z><noise type="gaussian"><mean>0</mean><stddev>0.02</stddev></noise></z>
+          </linear_acceleration>
+        </imu>
+      </sensor>
+    </gazebo>
+  </xacro:macro>
+</robot>

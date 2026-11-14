@@ -1,0 +1,23 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>warehouse_description</name>
+  <version>0.2.0</version>
+  <description>URDF/xacro of the warehouse AMR: differential-drive base, 2D LiDAR, RGB-D camera, IMU, ros2_control (gz_ros2_control). The UR5e arm and gripper join in v0.7.</description>
+  <maintainer email="mehran.pashaei.mp@gmail.com">Mehran Pashaei</maintainer>
+  <license>Apache-2.0</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <exec_depend>xacro</exec_depend>
+  <exec_depend>gz_ros2_control</exec_depend>
+  <exec_depend>diff_drive_controller</exec_depend>
+  <exec_depend>joint_state_broadcaster</exec_depend>
+
+  <test_depend>ament_cmake_pytest</test_depend>
+  <test_depend>python3-yaml</test_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>

@@ -3,6 +3,7 @@ add_executable(robot_core_tests
   test_enum_names.cpp
   test_geometry.cpp
   test_perception_types.cpp
+  test_sample_statistics.cpp
   test_manipulation_types.cpp
   test_mission.cpp
   test_mission_state_machine.cpp

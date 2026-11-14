@@ -1,0 +1,179 @@
+<?xml version="1.0"?>
+<!--
+  Differential-drive warehouse AMR base (v0.2). The UR5e arm and gripper are
+  mounted on top in v0.7 (mobile_manipulator.urdf.xacro).
+
+  Frames (REP 105, REP 103: x forward, y left, z up):
+    base_footprint   ground projection of base_link, the frame Nav2 plans for
+    base_link        centre of the drive axle at wheel-axis height
+    laser_link       2D LiDAR, front top
+    camera_link      RGB-D camera body (x forward)
+    camera_optical_frame  optical convention (z forward, x right, y down)
+    imu_link         IMU at the chassis centre
+  Wheels are driven only through ros2_control (gz_ros2_control), never by a
+  direct Gazebo cmd_vel plugin.
+-->
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="warehouse_amr">
+
+  <xacro:arg name="controllers_file" default="$(find warehouse_description)/config/base_controllers.yaml"/>
+  <xacro:arg name="sim_gazebo" default="true"/>
+
+  <!-- Chassis and drive geometry (m, kg) -->
+  <xacro:property name="chassis_length" value="0.70"/>
+  <xacro:property name="chassis_width" value="0.50"/>
+  <xacro:property name="chassis_height" value="0.25"/>
+  <xacro:property name="chassis_mass" value="40.0"/>
+  <xacro:property name="wheel_radius" value="0.08"/>
+  <xacro:property name="wheel_width" value="0.05"/>
+  <xacro:property name="wheel_mass" value="1.5"/>
+  <xacro:property name="wheel_separation" value="0.56"/>
+  <xacro:property name="caster_radius" value="0.04"/>
+  <xacro:property name="caster_offset_x" value="0.26"/>
+  <!-- Chassis bottom clearance above the axle centre -->
+  <xacro:property name="chassis_z" value="${chassis_height / 2 - 0.02}"/>
+
+  <xacro:macro name="box_inertia" params="m x y z">
+    <inertia ixx="${m * (y * y + z * z) / 12}" ixy="0" ixz="0"
+             iyy="${m * (x * x + z * z) / 12}" iyz="0"
+             izz="${m * (x * x + y * y) / 12}"/>
+  </xacro:macro>
+  <xacro:macro name="cylinder_inertia" params="m r h">
+    <!-- Axis along z of the link frame -->
+    <inertia ixx="${m * (3 * r * r + h * h) / 12}" ixy="0" ixz="0"
+             iyy="${m * (3 * r * r + h * h) / 12}" iyz="0"
+             izz="${m * r * r / 2}"/>
+  </xacro:macro>
+  <xacro:macro name="sphere_inertia" params="m r">
+    <inertia ixx="${2 * m * r * r / 5}" ixy="0" ixz="0"
+             iyy="${2 * m * r * r / 5}" iyz="0" izz="${2 * m * r * r / 5}"/>
+  </xacro:macro>
+
+  <link name="base_footprint"/>
+
+  <link name="base_link">
+    <visual>
+      <origin xyz="0 0 ${chassis_z}"/>
+      <geometry><box size="${chassis_length} ${chassis_width} ${chassis_height}"/></geometry>
+      <material name="amr_orange"><color rgba="0.95 0.45 0.1 1"/></material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 ${chassis_z}"/>
+      <geometry><box size="${chassis_length} ${chassis_width} ${chassis_height}"/></geometry>
+    </collision>
+    <inertial>
+      <origin xyz="0 0 ${chassis_z}"/>
+      <mass value="${chassis_mass}"/>
+      <xacro:box_inertia m="${chassis_mass}" x="${chassis_length}" y="${chassis_width}" z="${chassis_height}"/>
+    </inertial>
+  </link>
+
+  <joint name="base_footprint_joint" type="fixed">
+    <parent link="base_footprint"/>
+    <child link="base_link"/>
+    <origin xyz="0 0 ${wheel_radius}"/>
+  </joint>
+
+  <xacro:macro name="drive_wheel" params="side y">
+    <link name="${side}_wheel_link">
+      <visual>
+        <origin rpy="${pi / 2} 0 0"/>
+        <geometry><cylinder radius="${wheel_radius}" length="${wheel_width}"/></geometry>
+        <material name="wheel_black"><color rgba="0.1 0.1 0.1 1"/></material>
+      </visual>
+      <collision>
+        <origin rpy="${pi / 2} 0 0"/>
+        <geometry><cylinder radius="${wheel_radius}" length="${wheel_width}"/></geometry>
+      </collision>
+      <inertial>
+        <origin rpy="${pi / 2} 0 0"/>
+        <mass value="${wheel_mass}"/>
+        <xacro:cylinder_inertia m="${wheel_mass}" r="${wheel_radius}" h="${wheel_width}"/>
+      </inertial>
+    </link>
+    <joint name="${side}_wheel_joint" type="continuous">
+      <parent link="base_link"/>
+      <child link="${side}_wheel_link"/>
+      <origin xyz="0 ${y} 0"/>
+      <axis xyz="0 1 0"/>
+      <dynamics damping="0.05" friction="0.0"/>
+    </joint>
+    <gazebo reference="${side}_wheel_link">
+      <mu1>1.0</mu1>
+      <mu2>1.0</mu2>
+    </gazebo>
+  </xacro:macro>
+
+  <xacro:drive_wheel side="left" y="${wheel_separation / 2}"/>
+  <xacro:drive_wheel side="right" y="${-wheel_separation / 2}"/>
+
+  <!-- Front and rear frictionless casters (fixed spheres) -->
+  <xacro:macro name="caster" params="name x">
+    <link name="${name}_caster_link">
+      <visual>
+        <geometry><sphere radius="${caster_radius}"/></geometry>
+        <material name="caster_grey"><color rgba="0.5 0.5 0.5 1"/></material>
+      </visual>
+      <collision><geometry><sphere radius="${caster_radius}"/></geometry></collision>
+      <inertial>
+        <mass value="0.5"/>
+        <xacro:sphere_inertia m="0.5" r="${caster_radius}"/>
+      </inertial>
+    </link>
+    <joint name="${name}_caster_joint" type="fixed">
+      <parent link="base_link"/>
+      <child link="${name}_caster_link"/>
+      <origin xyz="${x} 0 ${caster_radius - wheel_radius}"/>
+    </joint>
+    <gazebo reference="${name}_caster_link">
+      <mu1>0.0</mu1>
+      <mu2>0.0</mu2>
+    </gazebo>
+  </xacro:macro>
+
+  <xacro:caster name="front" x="${caster_offset_x}"/>
+  <xacro:caster name="rear" x="${-caster_offset_x}"/>
+
+  <xacro:include filename="$(find warehouse_description)/urdf/sensors.xacro"/>
+  <xacro:base_sensors chassis_top="${chassis_z + chassis_height / 2}" chassis_front="${chassis_length / 2}"/>
+
+  <!-- ros2_control: wheel velocity commands, position and velocity states (encoders) -->
+  <ros2_control name="AmrBaseSystem" type="system">
+    <hardware>
+      <plugin>gz_ros2_control/GazeboSimSystem</plugin>
+    </hardware>
+    <xacro:macro name="wheel_interfaces" params="side">
+      <joint name="${side}_wheel_joint">
+        <command_interface name="velocity">
+          <param name="min">-10</param>
+          <param name="max">10</param>
+        </command_interface>
+        <state_interface name="position"/>
+        <state_interface name="velocity"/>
+      </joint>
+    </xacro:macro>
+    <xacro:wheel_interfaces side="left"/>
+    <xacro:wheel_interfaces side="right"/>
+  </ros2_control>
+
+  <xacro:if value="$(arg sim_gazebo)">
+    <gazebo>
+      <plugin filename="gz_ros2_control-system" name="gz_ros2_control::GazeboSimROS2ControlPlugin">
+        <parameters>$(arg controllers_file)</parameters>
+        <ros>
+          <!-- Jazzy diff_drive_controller takes TwistStamped on ~/cmd_vel -->
+          <remapping>/diff_drive_controller/cmd_vel:=/cmd_vel</remapping>
+          <remapping>/diff_drive_controller/odom:=/odom</remapping>
+        </ros>
+      </plugin>
+      <!-- Ground truth for evaluation only (localization ATE, 3D error): the
+           true base pose in the world (= map) frame, never used for control. -->
+      <plugin filename="gz-sim-odometry-publisher-system" name="gz::sim::systems::OdometryPublisher">
+        <odom_frame>map</odom_frame>
+        <robot_base_frame>base_footprint</robot_base_frame>
+        <odom_topic>ground_truth/odom</odom_topic>
+        <odom_publish_frequency>50</odom_publish_frequency>
+        <dimensions>2</dimensions>
+      </plugin>
+    </gazebo>
+  </xacro:if>
+</robot>

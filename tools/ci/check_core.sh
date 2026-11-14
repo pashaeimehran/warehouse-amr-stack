@@ -74,8 +74,13 @@ fi
 run_ros_independence() {
   step "ROS independence of domain libraries"
   local pattern='#include *[<"](rclcpp|rcl|rmw|tf2|tf2_ros|ament_index_cpp|[a-z_]+_msgs|[a-z_]+_srvs|[a-z_]+_interfaces)/'
-  if grep -rEn "${pattern}" src/*_core/; then
+  if grep -rEn --include='*.hpp' --include='*.cpp' --include='*.h' "${pattern}" src/*_core/; then
     die "ROS include found in a ROS-free core library"
+  fi
+  # Python core packages (perception_core): no rclpy, rosidl or message imports.
+  local py_pattern='^[[:space:]]*(import|from)[[:space:]]+(rclpy|rosidl[a-z_]*|cv_bridge|[a-z_]+_msgs|[a-z_]+_srvs)([[:space:].]|$)'
+  if grep -rEn --include='*.py' "${py_pattern}" src/*_core/; then
+    die "ROS import found in a ROS-free core package"
   fi
   echo "ok"
 }
@@ -98,6 +103,19 @@ run_shellcheck() {
   mapfile -t files < <(find . -path ./build -prune -o -type f -name '*.sh' -print | sort)
   step "shellcheck $(shellcheck --version | sed -n 2p | grep -oE '[0-9.]+') (${#files[@]} files)"
   shellcheck -x "${files[@]}"
+  # The repository lives on /mnt/d, where git runs with core.filemode=false and
+  # records new files as 100644. CI then fails with exit code 126 ("permission
+  # denied"), so check the mode stored in the index, not the working tree.
+  if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    local bad
+    bad="$(git ls-files -s -- '*.sh' | awk '$1 != "100755" {print $4}')"
+    if [[ -n "${bad}" ]]; then
+      die "not executable in the git index (run: git update-index --chmod=+x <file>): ${bad//$'\n'/ }"
+    fi
+    echo "git index: every tracked *.sh is 100755"
+  else
+    echo "not a git work tree: index file modes not checked"
+  fi
   echo "ok"
 }
 

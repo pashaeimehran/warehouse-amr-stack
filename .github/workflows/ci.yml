@@ -2,13 +2,15 @@
 # ASan, UBSan, gcovr coverage with artifacts. TSan runs nightly and on demand
 # (roadmap: "ASan and UBSan (TSan scheduled)").
 #
-# Each job runs tools/ci/check_core.sh inside the cached CI image, so
+# Each job runs tools/ci/check_core.sh or tools/ci/check_ros.sh inside the
+# cached CI image, so
 #   docker compose --profile ci run --rm ci tools/ci/check_core.sh <step>
-# reproduces a job locally. GPU-dependent tests (label "gpu") never run here:
+#   docker compose --profile ci run --rm ci tools/ci/check_ros.sh build test
+# reproduce a job locally. GPU-dependent tests (label "gpu") never run here:
 # hosted runners have no GPU and every test preset excludes that label.
 #
-# ROS workspace build, pytest, node tests and launch_testing join this
-# workflow when those packages exist (v0.2 onward).
+# The ros job builds the colcon workspace and runs GTest, pytest and the
+# launch tests, including headless Gazebo (v0.2 onward).
 name: ci
 
 on:
@@ -94,6 +96,30 @@ jobs:
         with:
           name: ctest-log-tsan
           path: build/tsan/Testing/Temporary/LastTest.log
+          if-no-files-found: ignore
+          retention-days: 14
+
+  ros:
+    name: ROS workspace (colcon build, GTest, pytest, launch_testing headless)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/ci-image
+      # Gazebo runs headless (gz sim -s) with Mesa software rendering; the
+      # launch tests use simulation time, so a slow runner only slows them.
+      - name: Build and test
+        run: >
+          docker run --rm -u "$(id -u):$(id -g)" -v "$GITHUB_WORKSPACE:/ws" -w /ws
+          -e JOBS=4 "$CI_IMAGE" tools/ci/check_ros.sh build test
+      - name: Upload test results
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ros-test-results
+          path: |
+            build/colcon/*/test_results/
+            build/log/
           if-no-files-found: ignore
           retention-days: 14
 

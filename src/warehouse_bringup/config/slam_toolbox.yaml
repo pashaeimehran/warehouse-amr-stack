@@ -1,0 +1,19 @@
+# slam_toolbox, online async mapping of the warehouse (used once to build
+# maps/warehouse.yaml; Nav2 then localizes with AMCL on the saved map).
+# Values not listed here are slam_toolbox's defaults (mapper_params_online_async.yaml).
+slam_toolbox:
+  ros__parameters:
+    use_sim_time: true
+    mode: mapping
+    odom_frame: odom
+    map_frame: map
+    base_frame: base_footprint
+    scan_topic: /scan
+    resolution: 0.05
+    max_laser_range: 20.0
+    minimum_travel_distance: 0.3
+    minimum_travel_heading: 0.3
+    map_update_interval: 2.0
+    transform_timeout: 0.5
+    enable_interactive_mode: false
+    do_loop_closing: true
